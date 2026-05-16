@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+<body style="background:black; margin:0; overflow:hidden;">
+<script>
+(async () => {
+  const AUDIO_URL = "https://www.dropbox.com/scl/fi/qp2ar2slu558g83yzmgkw/Crash-Burn.mp3?rlkey=jodwdgr7r87i0ygjqp0qq8qx0&st=ha9tptno&dl=1";
+  const SONG_TITLE = "Crash & Burn";
+
+  function showWarningModal() {
+    const modal = document.createElement("div");
+    Object.assign(modal.style, {
+      position: "fixed",
+      inset: "0",
+      background: "rgba(0,0,0,0.8)",
+      zIndex: "999999999",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "white",
+      fontFamily: "Arial, sans-serif",
+      textAlign: "center",
+      padding: "20px"
+    });
+
+    modal.innerHTML = `
+      <div style="
+        background:#111;
+        padding:30px;
+        border-radius:12px;
+        max-width:500px;
+        box-shadow:0 0 20px rgba(255,0,150,0.5);
+      ">
+        <h2 style="margin-bottom:15px; font-size:26px; color:#ff2d9a;">
+          ⚠️ Epilepsy Warning
+        </h2>
+
+        <p style="font-size:16px; line-height:1.5; margin-bottom:25px;">
+          This script contains rapidly flashing lights, bright colors, and motion effects.
+          It may trigger seizures for individuals with photosensitive epilepsy.<br><br>
+          <strong>You have been warned ^w^</strong>
+        </p>
+
+        <button id="runScript" style="
+          padding:12px 20px;
+          margin-right:10px;
+          font-size:16px;
+          border:none;
+          border-radius:8px;
+          background:#28a745;
+          color:white;
+          cursor:pointer;
+        ">Run Script</button>
+
+        <button id="cancelScript" style="
+          padding:12px 20px;
+          font-size:16px;
+          border:none;
+          border-radius:8px;
+          background:#dc3545;
+          color:white;
+          cursor:pointer;
+        ">Don't Run Script</button>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById("cancelScript").onclick = () => modal.remove();
+    document.getElementById("runScript").onclick = () => {
+      modal.remove();
+      startVisualizer();
+    };
+  }
+
+  showWarningModal();
+
+  function startVisualizer() {
+    const audio = new Audio(AUDIO_URL);
+    audio.crossOrigin = "anonymous";
+    audio.loop = false;
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaElementSource(audio);
+    const analyser = audioCtx.createAnalyser();
+    const gainNode = audioCtx.createGain();
+
+    analyser.fftSize = 256;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+
+    source.connect(analyser);
+    analyser.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    let audioLevel = 0;
+    let bass = 0, lowMid = 0, mid = 0, high = 0, treble = 0;
+    let beat = false;
+    let beatEnergy = 0;
+
+    function avg(arr) {
+      let s = 0;
+      for (let i = 0; i < arr.length; i++) s += arr[i];
+      return arr.length ? s / arr.length : 0;
+    }
+
+    function updateAudio() {
+      analyser.getByteFrequencyData(data);
+
+      audioLevel = avg(data) / 255;
+
+      bass = avg(data.slice(0, 20)) / 255;
+      lowMid = avg(data.slice(20, 60)) / 255;
+      mid = avg(data.slice(60, 120)) / 255;
+      high = avg(data.slice(120, 180)) / 255;
+      treble = avg(data.slice(180)) / 255;
+
+      if (!isFinite(audioLevel)) audioLevel = 0;
+      if (!isFinite(bass)) bass = 0;
+      if (!isFinite(lowMid)) lowMid = 0;
+      if (!isFinite(mid)) mid = 0;
+      if (!isFinite(high)) high = 0;
+      if (!isFinite(treble)) treble = 0;
+
+      const threshold = 0.45;
+      beat = bass > threshold && bass > beatEnergy * 0.9;
+      beatEnergy = Math.max(bass, beatEnergy * 0.9);
+
+      requestAnimationFrame(updateAudio);
+    }
+
+    audioCtx.resume().then(() => {
+      audio.play().catch(err => console.warn("Audio play blocked:", err));
+      updateAudio();
+    });
+
+    let intenseMode = false;
+    setTimeout(() => intenseMode = true, 10000);
+
+    const overlay = document.createElement("div");
+    Object.assign(overlay.style, {
+      position: "fixed",
+      inset: "0",
+      zIndex: "999999",
+      pointerEvents: "none",
+      overflow: "hidden",
+      opacity: "1"
+    });
+    document.body.appendChild(overlay);
+
+    const canvas = document.createElement("canvas");
+    overlay.appendChild(canvas);
+    const ctx = canvas.getContext("2d");
+
+    let w = canvas.width = window.innerWidth;
+    let h = canvas.height = window.innerHeight;
+
+    window.addEventListener("resize", () => {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+    });
+
+    const titleEl = document.createElement("div");
+    titleEl.textContent = SONG_TITLE;
+    Object.assign(titleEl.style, {
+      position: "fixed",
+      left: "10px",
+      bottom: "10px",
+      fontFamily: "Consolas, monospace",
+      fontSize: "11px",
+      letterSpacing: "1px",
+      color: "#fff",
+      textShadow: "0 0 4px #0ff",
+      zIndex: "1000000",
+      pointerEvents: "none"
+    });
+    document.body.appendChild(titleEl);
+
+    const titleStyle = document.createElement("style");
+    titleStyle.innerHTML = `
+      @keyframes rgbTitleCycle {
+        0%   { color: #ff004c; text-shadow: 0 0 4px #ff004c; }
+        33%  { color: #00ff9a; text-shadow: 0 0 4px #00ff9a; }
+        66%  { color: #00c8ff; text-shadow: 0 0 4px #00c8ff; }
+        100% { color: #ff004c; text-shadow: 0 0 4px #ff004c; }
+      }
+      #rgb-song-title {
+        animation: rgbTitleCycle 3s linear infinite;
+      }
+    `;
+    document.head.appendChild(titleStyle);
+    titleEl.id = "rgb-song-title";
+
+    function fadeOutAndCleanup() {
+      let opacity = 1;
+      let gainVal = gainNode.gain.value;
+
+      const fade = setInterval(() => {
+        opacity -= 0.03;
+        gainVal -= 0.03;
+        overlay.style.opacity = Math.max(0, opacity);
+        gainNode.gain.value = Math.max(0, gainVal);
+
+        if (opacity <= 0 || gainVal <= 0) {
+          clearInterval(fade);
+          cleanup();
+        }
+      }, 30);
+    }
+
+    function cleanup() {
+      audio.pause();
+      audio.src = "";
+      overlay.remove();
+      titleEl.remove();
+      titleStyle.remove();
+      showReplayPrompt();
+    }
+
+    function showReplayPrompt() {
+      const prompt = document.createElement("div");
+      Object.assign(prompt.style, {
+        position: "fixed",
+        inset: "0",
+        background: "rgba(0,0,0,0.7)",
+        zIndex: "999999999",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "white",
+        fontFamily: "Arial, sans-serif",
+        textAlign: "center"
+      });
+
+      prompt.innerHTML = `
+        <div style="
+          background:#111;
+          padding:25px;
+          border-radius:12px;
+          width:350px;
+          box-shadow:0 0 20px rgba(255,0,150,0.5);
+        ">
+          <h3 style="margin-bottom:15px; font-size:22px; color:#ff2d9a;">
+            Replay the light show?
+          </h3>
+
+          <button id="replayYes" style="
+            padding:10px 20px;
+            margin-right:10px;
+            font-size:16px;
+            border:none;
+            border-radius:8px;
+            background:#28a745;
+            color:white;
+            cursor:pointer;
+          ">Yes</button>
+
+          <button id="replayNo" style="
+            padding:10px 20px;
+            font-size:16px;
+            border:none;
+            border-radius:8px;
+            background:#dc3545;
+            color:white;
+            cursor:pointer;
+          ">No</button>
+        </div>
+      `;
+
+      document.body.appendChild(prompt);
+
+      document.getElementById("replayYes").onclick = () => {
+        prompt.remove();
+        startVisualizer();
+      };
+
+      document.getElementById("replayNo").onclick = () => prompt.remove();
+    }
+
+    audio.addEventListener("ended", fadeOutAndCleanup);
+
+    const fog = Array.from({ length: 40 }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: 200 + Math.random() * 200,
+      a: 0.03 + Math.random() * 0.05,
+      vx: -0.2 + Math.random() * 0.4,
+      vy: -0.2 + Math.random() * 0.4
+    }));
+
+    const lasers = Array.from({ length: 14 }, () => ({
+      side: Math.floor(Math.random() * 4),
+      pos: Math.random(),
+      angle: Math.random() * Math.PI * 2,
+      spinSpeed: 0.001 + Math.random() * 0.01,
+      width: 8 + Math.random() * 15,
+      hue: Math.random() * 360,
+      pulse: 0
+    }));
+
+    function drawLasers() {
+      lasers.forEach(b => {
+        const spin = intenseMode ? b.spinSpeed * 3 : b.spinSpeed;
+        b.angle += spin * (1 + mid * 1.2);
+
+        b.pos += (Math.random() - 0.5) * 0.002;
+        b.pos = Math.max(0, Math.min(1, b.pos));
+
+        b.hue = (b.hue + 0.4 + treble * 2) % 360;
+
+        if (beat && Math.random() < 0.4) b.pulse = 1;
+        if (b.pulse > 0) b.pulse -= 0.03;
+
+        const bassBoost = 1 + bass * 3;
+        const brightness = (intenseMode ? 0.5 : 0.3) + mid * 0.7;
+        const width = b.width * (1 + b.pulse * 2) * bassBoost;
+
+        let x1, y1;
+        if (b.side === 0) { x1 = b.pos * w; y1 = 0; }
+        if (b.side === 1) { x1 = w; y1 = b.pos * h; }
+        if (b.side === 2) { x1 = b.pos * w; y1 = h; }
+        if (b.side === 3) { x1 = 0; y1 = b.pos * h; }
+
+        const x2 = x1 + Math.cos(b.angle) * w * 2;
+        const y2 = y1 + Math.sin(b.angle) * h * 2;
+
+        const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+        grad.addColorStop(0, `hsla(${b.hue},100%,70%,0)`);
+        grad.addColorStop(0.4, `hsla(${b.hue},100%,70%,${brightness})`);
+        grad.addColorStop(1, `hsla(${b.hue},100%,70%,0)`);
+
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = width;
+        ctx.lineCap = "round";
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      });
+    }
+
+    const lights = Array.from({ length: 20 }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: 10 + Math.random() * 40,
+      hue: Math.random() * 360,
+      a: 0,
+      life: 0,
+      maxLife: 30 + Math.random() * 40
+    }));
+
+    function updateLights() {
+      lights.forEach(l => {
+        l.life++;
+
+        if (l.life < l.maxLife / 2) {
+          l.a = l.life / (l.maxLife / 2);
+        } else {
+          l.a = 1 - ((l.life - l.maxLife / 2) / (l.maxLife / 2));
+        }
+
+        if (l.life >= l.maxLife) {
+          l.x = Math.random() * w;
+          l.y = Math.random() * h;
+          l.r = 10 + Math.random() * 40;
+          l.hue = (l.hue + 60 + treble * 120) % 360;
+          l.life = 0;
+          l.maxLife = 30 + Math.random() * 40;
+        }
+      });
+    }
+
+    function drawLights() {
+      const sparkle = 0.5 + treble * 1.8;
+      const safeSparkle = isFinite(sparkle) ? sparkle : 0.5;
+
+      lights.forEach(l => {
+        const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
+        g.addColorStop(0, `hsla(${l.hue},100%,60%,${l.a * safeSparkle})`);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      });
+    }
+
+    const rgbStyle = document.createElement("style");
+    rgbStyle.id = "rgb-style";
+    rgbStyle.innerHTML = `
+      @keyframes uiRGBPulse {
+        0%   { filter: drop-shadow(0 0 4px red); }
+        33%  { filter: drop-shadow(0 0 4px lime); }
+        66%  { filter: drop-shadow(0 0 4px cyan); }
+        100% { filter: drop-shadow(0 0 4px red); }
+      }
+
+      button,
+      a,
+      input,
+      select,
+      textarea,
+      [role="button"],
+      [tabindex],
+      .btn,
+      .shortcut,
+      .icon,
+      .tile,
+      .nav-item {
+        animation: uiRGBPulse 3s linear infinite;
+        transition: filter 0.2s ease;
+      }
+    `;
+    document.head.appendChild(rgbStyle);
+
+    function updateUIRGB() {
+      const brightness = 1 + audioLevel * (intenseMode ? 0.8 : 0.4);
+      const safeBrightness = isFinite(brightness) ? brightness : 1;
+
+      document.querySelectorAll(`
+        button,
+        a,
+        input,
+        select,
+        textarea,
+        [role="button"],
+        [tabindex],
+        .btn,
+        .shortcut,
+        .icon,
+        .tile,
+        .nav-item
+      `).forEach(el => {
+        el.style.filter = `brightness(${safeBrightness})`;
+      });
+
+      requestAnimationFrame(updateUIRGB);
+    }
+    updateUIRGB();
+
+    function draw() {
+      ctx.clearRect(0, 0, w, h);
+
+      let shaking = false;
+      if (bass > 0.6 && intenseMode) {
+        shaking = true;
+        ctx.save();
+        ctx.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
+      }
+
+      fog.forEach(f => {
+        f.x += f.vx;
+        f.y += f.vy;
+
+        if (f.x < -f.r) f.x = w + f.r;
+        if (f.x > w + f.r) f.x = -f.r;
+        if (f.y < -f.r) f.y = h + f.r;
+        if (f.y > h + f.r) f.y = -f.r;
+
+        const fogAlpha = (intenseMode ? f.a * 2 : f.a) * (0.6 + lowMid * 1.4);
+        const safeFogAlpha = isFinite(fogAlpha) ? fogAlpha : f.a;
+
+        const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+        g.addColorStop(0, `rgba(255,255,255,${safeFogAlpha})`);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      });
+
+      updateLights();
+      drawLights();
+      drawLasers();
+
+      if (beat) {
+        ctx.fillStyle = "rgba(255,255,255,0.06)";
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      if (shaking) ctx.restore();
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  }
+
+})();
+
+</script>
+</body>
+</html>

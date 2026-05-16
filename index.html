@@ -3,7 +3,7 @@
 <body style="background:black; margin:0; overflow:hidden;">
 <script>
 (async () => {
-  const AUDIO_URL = "https://raw.githubusercontent.com/FeralFireFox/visualizer-site/main/Crash-Burn.mp3";
+  const AUDIO_URL = "https://raw.githubusercontent.com/FeralFireFox/visualizer-assets/main/song.mp3";
   const SONG_TITLE = "Crash & Burn";
 
   function showWarningModal() {
@@ -81,10 +81,9 @@
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioCtx.createMediaElementSource(audio);
-    const analyser = audioCtx.createAnalyser();
+    const analyser = new AnalyserNode(audioCtx, { fftSize: 256 });
     const gainNode = audioCtx.createGain();
 
-    analyser.fftSize = 256;
     const data = new Uint8Array(analyser.frequencyBinCount);
 
     source.connect(analyser);
@@ -112,13 +111,6 @@
       mid = avg(data.slice(60, 120)) / 255;
       high = avg(data.slice(120, 180)) / 255;
       treble = avg(data.slice(180)) / 255;
-
-      if (!isFinite(audioLevel)) audioLevel = 0;
-      if (!isFinite(bass)) bass = 0;
-      if (!isFinite(lowMid)) lowMid = 0;
-      if (!isFinite(mid)) mid = 0;
-      if (!isFinite(high)) high = 0;
-      if (!isFinite(treble)) treble = 0;
 
       const threshold = 0.45;
       beat = bass > threshold && bass > beatEnergy * 0.9;
@@ -150,12 +142,12 @@
     overlay.appendChild(canvas);
     const ctx = canvas.getContext("2d");
 
-    let w = canvas.width = window.innerWidth;
-    let h = canvas.height = window.innerHeight;
+    let w = canvas.width = innerWidth;
+    let h = canvas.height = innerHeight;
 
-    window.addEventListener("resize", () => {
-      w = canvas.width = window.innerWidth;
-      h = canvas.height = window.innerHeight;
+    addEventListener("resize", () => {
+      w = canvas.width = innerWidth;
+      h = canvas.height = innerHeight;
     });
 
     const titleEl = document.createElement("div");
@@ -487,3 +479,4 @@
 </script>
 </body>
 </html>
+
